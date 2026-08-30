@@ -8,7 +8,21 @@
 class Distortion : public AudioStream { // Child class of audiostream
 public:
     Distortion() // Constructor, executes when object is created
-        : AudioStream(1, inputQueueArray), gain(25.0f) {} // Creates the audiostream portion of the object
+        : AudioStream(1, inputQueueArray), gain(25.0f), level(0.25) {} // Creates the audiostream portion of the object
+
+    void setGain(float drive) {
+    drive = constrain(drive, 1.0f, 10.0f);
+
+    // 1-10 knob → 1x-25x internal gain
+    gain = 1.0f + (drive - 1.0f) * (24.0f / 9.0f);
+    }
+
+    void setLevel(float lev) {
+    lev = constrain(lev, 1.0f, 10.0f);
+
+    // 1-10 knob → 0.1-1.0 output multiplier
+    level = lev / 10.0f;
+    }
 
     void update(void) override { // Inherited virtual class
         audio_block_t *block = receiveWritable(0); // gets copy of audio block if necessary
@@ -19,16 +33,19 @@ public:
 
         //DSP happens here
         for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) { // Accesses each individual sample in a block
-            // 1. Normalize
+            // Normalize
             float x = block->data[i] / 32768.0f;
 
-            // 2. Apply drive
+            // Apply drive
             x *= gain;
 
-            // 3. Nonlinear waveshaping
+            // Nonlinear waveshaping
             x = tanhf(x);
 
-            // 4. Convert back to 16-bit PCM
+            // Set volume
+            x *= level; 
+
+            // Convert back to 16-bit PCM
             block->data[i] = (int16_t)(x * 32767.0f);
         }
 
@@ -38,6 +55,7 @@ public:
   private:
     audio_block_t *inputQueueArray[1];
     float gain;
+    float level;
   };
 
 
@@ -54,6 +72,20 @@ public:
     {
         setLowpass(18000.0f, 0.707f);
     }
+
+    void setTone(float tone) {
+    tone = constrain(tone, 1.0f, 10.0f);
+
+    const float minFreq = 500.0f;
+    const float maxFreq = 15000.0f;
+
+    float normalized = (tone - 1.0f) / 9.0f;
+
+    float cutoff =
+        minFreq * powf(maxFreq / minFreq, normalized);
+
+    setLowpass(cutoff, 0.707f);
+  }
 
     void setLowpass(float cutoffHz, float Q)
     {
@@ -154,6 +186,16 @@ public:
       delayBuffer[i]=0;
     }
   }
+
+  void setDelay(float delay_time, float mix){
+    delay_time = constrain(delay_time, 1.0f, 10.0f);
+    mix = constrain(mix, 1.0f, 10.0f);
+    delaySamples = (int) ((delay_time-1.0f) * (22050.0f/9.0f));
+    wet = mix/10.0f ;
+
+    readPointer = (writePointer-delaySamples+buffer_size) % buffer_size;
+  }
+
   void update(void) override {
     audio_block_t *block = receiveWritable(0);
     if(!block){
@@ -192,9 +234,11 @@ private:
   float dry;
 
 
+
 }; 
 
 
+//Initialize audio stuff
 AudioInputI2S  audioInput;
 AudioOutputI2S audioOutput;
 AudioAnalyzePeak peak;
@@ -203,6 +247,30 @@ AudioAnalyzePeak peak;
 Distortion distortion;
 LowPassBiquad lowpass;
 customDelay delay1;
+
+struct pedalState{
+  float gain;
+  float level;
+  float tone;
+  float delay_time;
+  float delay_mix;
+};
+
+void applySettings(pedalState settings){
+  distortion.setGain(settings.gain);
+  distortion.setLevel(settings.level);
+  lowpass.setTone(settings.tone);
+  delay1.setDelay(settings.delay_time,settings.delay_mix);
+};
+
+// Presets
+pedalState state1 = {
+  7.0, // Gain
+  5.0, // Level
+  5.0, // tone
+  1.0, // delay_time
+  5.0 // delay_mix
+};
 
 // Build Graph
 AudioConnection patchCord1(audioInput, 0, distortion, 0);
@@ -238,6 +306,9 @@ void setup() {
 
   // Headphone volume
   audioShield.volume(0.7);
+
+  // Apply states
+  applySettings(state1);
 }
 
 
