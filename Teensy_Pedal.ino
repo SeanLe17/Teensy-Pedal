@@ -4,40 +4,11 @@
 #include <SD.h>
 #include <SerialFlash.h>
 
-// ---------- AUDIO OBJECTS ----------
-
-AudioInputI2S        audioInput;
-AudioEffectFreeverb  reverb;
-AudioMixer4          mixer;
-AudioOutputI2S       audioOutput;
-
-// Measures the ORIGINAL guitar input
-AudioAnalyzePeak     peak;
-
-
-// ---------- CONNECTIONS ----------
-
-// Dry guitar
-AudioConnection patchCord1(audioInput, 0, mixer, 0);
-
-// Guitar -> reverb
-AudioConnection patchCord2(audioInput, 0, reverb, 0);
-
-// Reverb -> mixer
-AudioConnection patchCord3(reverb, 0, mixer, 1);
-
-// Mixer -> headphones L/R
-AudioConnection patchCord4(mixer, 0, audioOutput, 0);
-AudioConnection patchCord5(mixer, 0, audioOutput, 1);
-
-// Guitar -> peak measurement
-AudioConnection patchCord6(audioInput, 0, peak, 0);
-
 //DSP classes
 class Distortion : public AudioStream { // Child class of audiostream
 public:
     Distortion() // Constructor, executes when object is created
-        : AudioStream(1, inputQueueArray) {} // Creates the audiostream portion of the object
+        : AudioStream(1, inputQueueArray), gain(25.0f) {} // Creates the audiostream portion of the object
 
     void update(void) override { // Inherited virtual class
         audio_block_t *block = receiveWritable(0); // gets copy of audio block if necessary
@@ -46,7 +17,7 @@ public:
             return;
         }
 
-        // DSP happens here
+        //DSP happens here
         for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) { // Accesses each individual sample in a block
             // 1. Normalize
             float x = block->data[i] / 32768.0f;
@@ -81,7 +52,7 @@ public:
           x1(0.0f), x2(0.0f),
           y1(0.0f), y2(0.0f)
     {
-        setLowpass(1000.0f, 0.707f);
+        setLowpass(18000.0f, 0.707f);
     }
 
     void setLowpass(float cutoffHz, float Q)
@@ -168,14 +139,14 @@ private:
     float y1, y2;
 };
 
-class Delay : public AudioStream {
+class customDelay : public AudioStream {
 public:
- Delay()
+ customDelay()
   : AudioStream(1, inputQueueArray),
   delaySamples(22050),
   writePointer(0),
   readPointer((writePointer-delaySamples+buffer_size)%buffer_size),
-  wet(0.5f),
+  wet(0.0f),
   dry(1.0f)
   {
     //Constructor function execution. Fill buffer using loop here
@@ -184,20 +155,20 @@ public:
     }
   }
   void update(void) override {
-    audio_block_t *block = recieveWritable(0);
+    audio_block_t *block = receiveWritable(0);
     if(!block){
       return;
     }
     for(int i = 0; i < AUDIO_BLOCK_SAMPLES; i++){
-      input = block->data[i];
-      delayBuffer[writePointer] = input
-      output = input * dry + delayBuffer[readPointer] * wet;
+      int16_t input = block->data[i];
+      delayBuffer[writePointer] = input;
+      float output = input * dry + delayBuffer[readPointer] * wet;
 
       if(output > 32767.0f){
         output = 32767.0f;
       }
       else if(output < -32768.0f){
-        output = 32768.0f;
+        output = -32768.0f;
       }
 
       block->data[i] = (int16_t)output;
@@ -212,16 +183,37 @@ public:
   }
 private:
   audio_block_t * inputQueueArray[1];
-  const static int buffer_size = 44100;
+  static constexpr int buffer_size = 44100;
   int16_t delayBuffer[buffer_size];
   int delaySamples; // How long delay is set to 
-  int readPointer;
   int writePointer;
+  int readPointer;
   float wet;
   float dry;
 
 
-}
+}; 
+
+
+AudioInputI2S  audioInput;
+AudioOutputI2S audioOutput;
+AudioAnalyzePeak peak;
+
+//Construct DSP vertices
+Distortion distortion;
+LowPassBiquad lowpass;
+customDelay delay1;
+
+// Build Graph
+AudioConnection patchCord1(audioInput, 0, distortion, 0);
+AudioConnection patchCord2(distortion, 0, lowpass, 0);
+AudioConnection patchCord3(lowpass, 0, delay1, 0);
+
+AudioConnection patchCord4(delay1, 0, audioOutput, 0);
+AudioConnection patchCord5(delay1, 0, audioOutput, 1);
+
+// Parallel branch only for measuring ORIGINAL input
+AudioConnection patchCordPeak(audioInput, 0, peak, 0);
 
 
 // ---------- AUDIO SHIELD ----------
@@ -246,28 +238,9 @@ void setup() {
 
   // Headphone volume
   audioShield.volume(0.7);
-
-
-  // ---------- MIX ----------
-
-  // Dry guitar
-  mixer.gain(0, 0.7);
-
-  // Reverb
-  mixer.gain(1, 0.6);
-
-  // Unused mixer channels
-  mixer.gain(2, 0);
-  mixer.gain(3, 0);
-
-
-  // ---------- REVERB ----------
-
-  reverb.roomsize(0.8);
-  reverb.damping(0.4);
-
-  Serial.println("Guitar + Reverb started!");
 }
+
+
 
 
 void loop() {
