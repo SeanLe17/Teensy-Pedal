@@ -3,6 +3,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
+#include <EEPROM.h>
 
 //DSP classes
 class Distortion : public AudioStream { // Child class of audiostream
@@ -263,6 +264,18 @@ void applySettings(pedalState settings){
   delay1.setDelay(settings.delay_time,settings.delay_mix);
 };
 
+void savePreset(int slot, const pedalState &state) {
+    int address = slot * sizeof(pedalState);
+
+    EEPROM.put(address, state);
+}
+
+void loadPreset(int slot, pedalState &state) {
+    int address = slot * sizeof(pedalState);
+
+    EEPROM.get(address, state);
+}
+
 // Presets
 pedalState state1 = {
   7.0, // Gain
@@ -307,6 +320,15 @@ void setup() {
   // Headphone volume
   audioShield.volume(0.7);
 
+    currentState.gain = 9.0f;
+    currentState.level = 4.0f;
+    currentState.tone = 3.0f;
+    currentState.delay_time = 8.0f;
+    currentState.delay_mix = 6.0f;
+
+    savePreset(0, state1);
+
+    Serial.println("Preset saved!");
   // Apply states
   applySettings(state1);
 }
