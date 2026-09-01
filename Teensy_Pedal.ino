@@ -276,15 +276,6 @@ void loadPreset(int slot, pedalState &state) {
     EEPROM.get(address, state);
 }
 
-// Presets
-pedalState state1 = {
-  7.0, // Gain
-  5.0, // Level
-  5.0, // tone
-  1.0, // delay_time
-  5.0 // delay_mix
-};
-
 // Build Graph
 AudioConnection patchCord1(audioInput, 0, distortion, 0);
 AudioConnection patchCord2(distortion, 0, lowpass, 0);
@@ -320,15 +311,14 @@ void setup() {
   // Headphone volume
   audioShield.volume(0.7);
 
-    currentState.gain = 9.0f;
-    currentState.level = 4.0f;
-    currentState.tone = 3.0f;
-    currentState.delay_time = 8.0f;
-    currentState.delay_mix = 6.0f;
-
-    savePreset(0, state1);
-
-    Serial.println("Preset saved!");
+  // Presets
+  pedalState state1 = {
+  7.0, // Gain
+  5.0, // Level
+  5.0, // tone
+  1.0, // delay_time
+  5.0 // delay_mix
+  };
   // Apply states
   applySettings(state1);
 }
@@ -338,14 +328,28 @@ void setup() {
 
 void loop() {
 
-  // Print original guitar input level
-  if (peak.available()) {
+    if (peak.available()) {
+        float level = peak.read();
 
-    float level = peak.read();
+        Serial.print("Input Peak: ");
+        Serial.println(level, 4);
+    }
 
-    Serial.print("Input Peak: ");
-    Serial.println(level, 4);
-  }
+    static unsigned long lastPrint = 0;
 
-  delay(20);
+    if (millis() - lastPrint >= 1000) {
+        lastPrint = millis();
+
+        Serial.print("CPU: ");
+        Serial.print(AudioProcessorUsage());
+        Serial.print("%  CPU Max: ");
+        Serial.print(AudioProcessorUsageMax());
+
+        Serial.print("%  Audio Mem: ");
+        Serial.print(AudioMemoryUsage());
+        Serial.print("  Audio Mem Max: ");
+        Serial.println(AudioMemoryUsageMax());
+    }
+
+    delay(20);
 }
