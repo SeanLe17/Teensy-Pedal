@@ -24,11 +24,24 @@ AudioBlock* BlockPool:: allocate(){
 }
 
 void BlockPool:: retain(AudioBlock* block){
+    if(!block){
+        return;
+    }
+    if(block->ref_count == 255){ // avoid overflow
+        return;
+    }
     block->ref_count++;
 }
 
 void BlockPool::release(AudioBlock* block){
+    if(!block){
+        return;
+    }
+    if(block->ref_count==0){ // Avoid wraparound
+        return;
+    }
     block->ref_count--;
+
     if(!block->ref_count){
         freeMask |= (1u << block->index);
     }
