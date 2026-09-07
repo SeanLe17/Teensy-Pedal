@@ -29,7 +29,7 @@ bool AudioRuntime :: addConnection(ProcessingNode* source, ProcessingNode* desti
 }
 
 bool AudioRuntime :: submitInput(ProcessingNode* input, AudioBlock* block){
-    if(input == nullptr && block == nullptr){
+    if(input == nullptr || block == nullptr){
         return false;
     }
     return input->acceptInput(block);

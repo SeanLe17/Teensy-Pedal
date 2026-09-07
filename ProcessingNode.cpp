@@ -1,4 +1,5 @@
 #include "ProcessingNode.h"
+#include <math.h>
 
 bool ProcessingNode::hasPendingInput() const {
     return pendingInput!= nullptr;

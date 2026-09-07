@@ -4,6 +4,7 @@
 #include <SD.h>
 #include <SerialFlash.h>
 #include <EEPROM.h>
+#include "BlockPool.h"
 
 //DSP classes
 class Distortion : public AudioStream { // Child class of audiostream
@@ -257,7 +258,7 @@ struct pedalState{
   float delay_mix;
 };
 
-void applySettings(pedalState settings){
+void applySettings(pedalState settings){ //Updates DSP vertices with new values
   distortion.setGain(settings.gain);
   distortion.setLevel(settings.level);
   lowpass.setTone(settings.tone);
