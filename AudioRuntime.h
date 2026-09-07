@@ -1,6 +1,9 @@
 #include "BlockPool.h"
 #include "Connection.h"
 
+//Directs traffic for the memory pool
+//Sets up nodes and connections and sends blocks along their edges
+
 class AudioRuntime {
 public:
     AudioRuntime(BlockPool& pool); // Accept a reference to a BlockPool 
@@ -12,6 +15,10 @@ public:
 
     bool submitInput(ProcessingNode* destination,
                      AudioBlock* block);
+
+    bool setOutputNode(ProcessingNode* node);
+
+    AudioBlock* takeOutput();
 
     void runTick();
 
@@ -29,4 +36,7 @@ private:
 
     void routeOutput(ProcessingNode* source,
                      AudioBlock* block);
+                     
+    ProcessingNode* outputNode;
+    AudioBlock* pendingOutput;
 };

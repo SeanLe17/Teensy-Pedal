@@ -16,4 +16,9 @@ bool ProcessingNode::acceptInput(AudioBlock* block) {
     pendingInput = block;
     return true;
 }
+AudioBlock* ProcessingNode::takeInput() {
+    AudioBlock* input = pendingInput;
+    pendingInput = nullptr;
+    return input;
+}
 

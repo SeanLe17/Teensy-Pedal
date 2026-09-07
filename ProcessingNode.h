@@ -1,6 +1,9 @@
 #pragma once
 #include "BlockPool.h"
 
+//pendingInput is mailbox
+
+
 class ProcessingNode {
 public:
     virtual AudioBlock* process(AudioBlock* input) = 0;
