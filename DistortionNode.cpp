@@ -1,5 +1,6 @@
-#include "DistortionNode.h"
+#include <Arduino.h>
 #include <math.h>
+#include "DistortionNode.h"
 
 DistortionNode :: DistortionNode()
 : gain(25.0f),
